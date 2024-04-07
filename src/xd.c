@@ -61,7 +61,7 @@ struct hexdumping {
 
 void hexprint(FILE *stream, unsigned char ch, uint16_t flags)
 {
-	if (ch == 0 && flags & HEXDFL_COLORED) {
+	if (!ch && flags & HEXDFL_COLORED) {
 		fprintf(stream, "\033[1;97m");
 	} else if (ch < 32 && flags & HEXDFL_COLORED) {
 		fprintf(stream, "\033[1;33m");
@@ -109,10 +109,10 @@ int chexdump(FILE *restrict stream, int source, unsigned char *restrict buf, siz
 
 	while ((readbytes = read(source, buf, bufsiz)) > 0) {
 		for (i = 0; i < readbytes; ++i, ++j) {
-			if (j && (j % hexfl->hex_columns) == 0) {
+			if (j != 0 && (j % hexfl->hex_columns) == 0) {
 				fprintf(stream, "\n");
 				if (hexfl->hex_filename) fprintf(stream, "\t");  
-			} else if (j) {
+			} else if (j != 0) {
 				fprintf(stream, ", ");
 			}
 			
@@ -127,7 +127,7 @@ int chexdump(FILE *restrict stream, int source, unsigned char *restrict buf, siz
 	if (readbytes < 0) return -1;
 	
 	if (hexfl->hex_filename) fprintf(stream, "\n};\nunsigned int %s_len = %zu;", hexfl->hex_filename, j); 
-	if (hexfl->hex_filename || (j % hexfl->hex_columns)) fprintf(stream, "\n");
+	if (hexfl->hex_filename || (j % hexfl->hex_columns) != 0) fprintf(stream, "\n");
 
 	return 0;
 }
@@ -142,7 +142,7 @@ int hexdump(FILE *restrict stream, int source, unsigned char *restrict buf, size
 	int used_digits = 0, used_spaces = 0;
 	
 	if (source == STDIN_FILENO) j = 0;
-	if ((hexfl->hex_flags & HEXDFL_FORCE_COLUMNS) == 0) {
+	if (!(hexfl->hex_flags & HEXDFL_FORCE_COLUMNS)) {
 		if (hexfl->hex_flags & HEXDFL_C) {
 			hexfl->hex_columns = 12;
 		} else if (hexfl->hex_flags & HEXDFL_BINDUMP) {
@@ -155,7 +155,7 @@ int hexdump(FILE *restrict stream, int source, unsigned char *restrict buf, size
 	}
 	
 	if (hexfl->hex_flags & HEXDFL_BINDUMP) digits = 8;
-	if ((hexfl->hex_flags & HEXDFL_FORCE_WORDSIZE) == 0) {
+	if (!(hexfl->hex_flags & HEXDFL_FORCE_WORDSIZE)) {
 		if (hexfl->hex_flags & HEXDFL_PLAIN) {
 			hexfl->hex_wordsize = INT_MAX;
 		} else if (hexfl->hex_flags & HEXDFL_BINDUMP) {
@@ -172,7 +172,7 @@ int hexdump(FILE *restrict stream, int source, unsigned char *restrict buf, size
 	while ((readbytes = read(source, buf, bufsiz)) > 0) {
 		i = 0;
 		while (i < readbytes) {
-			if ((hexfl->hex_flags & HEXDFL_NOCOUNT) == 0) {
+			if (!(hexfl->hex_flags & HEXDFL_NOCOUNT)) {
 				if (hexfl->hex_flags & HEXDFL_DECCOUNT) {
 					fprintf(stream, "%010zd", j);
 				} else if (hexfl->hex_flags & HEXDFL_UPPER) {
@@ -195,7 +195,7 @@ int hexdump(FILE *restrict stream, int source, unsigned char *restrict buf, size
 					hexprint(stream, buf[i], hexfl->hex_flags | HEXPFL_BYTE);
 			}
 	
-			if ((hexfl->hex_flags & HEXDFL_PLAIN) == 0) {
+			if (!(hexfl->hex_flags & HEXDFL_PLAIN)) {
 				fprintf(stream, "%*s", (dumplen - used_digits - used_spaces), "");
 				fprintf(stream, "%*s", hexfl->hex_dump_separator_len, hexfl->hex_dump_separator); 
 				for (k = i - k; k < i; ++k)
@@ -314,7 +314,7 @@ int __xd__(int argc, char **argv)
 		}
 	}
 	
-	if ((hexfl->hex_flags & HEXDFL_MASK_FORMAT) == 0 && isatty(STDOUT_FILENO) && !getenv("NO_COLOR")) 
+	if (!(hexfl->hex_flags & HEXDFL_MASK_FORMAT) && isatty(STDOUT_FILENO) && !getenv("NO_COLOR")) 
 		hexfl->hex_flags |= HEXDFL_COLORED;
 
 	if (!argv[optind]) argv[optind] = "-";
@@ -328,7 +328,7 @@ int __xd__(int argc, char **argv)
 			continue; 
 		}
 
-		if ((hexfl->hex_flags & HEXDFL_AUTONAME) == 0) hexfl->hex_filename = argv[optind];
+		if (!(hexfl->hex_flags & HEXDFL_AUTONAME)) hexfl->hex_filename = argv[optind];
 		if (hexdump(stdout, fd, buf, bufsiz, hexfl) < 0) {
 			dprintf(STDERR_FILENO, "%s: '%s': Unable to hexdump: %s (%d).\n", argv[0], argv[optind], strerror(errno), errno);
 			exitcode = EXIT_FAILURE;
