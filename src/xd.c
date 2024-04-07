@@ -50,7 +50,7 @@
 #define HEXDFL_NOCOLOR		(0x100)
 #define HEXDFL_AUTONAME		(0x200)
 #define HEXDFL_NOCOUNT		(0x400)
-#define HEXDFL_MASK_FORMAT	(HEXDFL_COLORED	| HEXDFL_NOCOLOR)
+#define HEXDFL_MASK_COLOR	(HEXDFL_COLORED	| HEXDFL_NOCOLOR)
 #define HEXPFL_BYTE		(0x800)
 
 struct hexdumping {
@@ -140,7 +140,7 @@ int hexdump(FILE *restrict stream, int source, unsigned char *restrict buf, size
 	ssize_t j = lseek(source, 0, SEEK_CUR);
 	ssize_t i = 0, k = 0;
 	
-		int dumplen = 0, digits = 2;
+	int dumplen = 0, digits = 2;
 	int used_digits = 0, used_spaces = 0;
 	
 	if (source == STDIN_FILENO) j = 0;
@@ -260,12 +260,12 @@ int __xd__(int argc, char **argv)
 		case 'O': hexfl->hex_flags &= ~HEXDFL_NOCOUNT; break;
 		case 'R':
 			if (strcasecmp("auto", optarg) == 0) {
-				hexfl->hex_flags &= ~HEXDFL_MASK_FORMAT;
+				hexfl->hex_flags &= ~HEXDFL_MASK_COLOR;
 			} else if (strcasecmp("always", optarg) == 0) {
-				hexfl->hex_flags &= ~HEXDFL_MASK_FORMAT;
+				hexfl->hex_flags &= ~HEXDFL_MASK_COLOR;
 				hexfl->hex_flags |= HEXDFL_COLORED;
 			} else if (strcasecmp("never", optarg) == 0) {
-				hexfl->hex_flags &= ~HEXDFL_MASK_FORMAT;
+				hexfl->hex_flags &= ~HEXDFL_MASK_COLOR;
 				hexfl->hex_flags |= HEXDFL_NOCOLOR;
 			}
 
@@ -281,6 +281,7 @@ int __xd__(int argc, char **argv)
 			}
 
 			if (hexfl->hex_columns == 0) hexfl->hex_columns = INT_MAX;	
+
 			break;
 		case 'd': hexfl->hex_flags |= HEXDFL_DECCOUNT; break;
 		case 'i': hexfl->hex_flags |= HEXDFL_C; hexfl->hex_flags &= ~HEXDFL_PLAIN; break;
@@ -294,6 +295,7 @@ int __xd__(int argc, char **argv)
 			}
 
 			if (hexfl->hex_wordsize == 0) hexfl->hex_wordsize = INT_MAX;	
+
 			break;
 		case 'n':
 			if (strcmp(optarg, "NULL") == 0) {
@@ -309,14 +311,19 @@ int __xd__(int argc, char **argv)
 				dprintf(STDERR_FILENO, "%s: '%s': Unable to output open file: %s (%d).\n", argv[0], optarg, strerror(errno), errno);
 				return EXIT_FAILURE;
 			}
+
 			dup2(fd, STDOUT_FILENO);
 			break;
-		case 'p': hexfl->hex_flags |= (HEXDFL_NOCOUNT | HEXDFL_PLAIN); hexfl->hex_flags &= ~HEXDFL_C; hexfl->hex_flags |= HEXDFL_NOCOLOR; hexfl->hex_off_separator = ""; break;
+		case 'p':
+			hexfl->hex_flags &= ~(HEXDFL_C | HEXDFL_MASK_COLOR);
+			hexfl->hex_flags |= (HEXDFL_NOCOUNT | HEXDFL_PLAIN | HEXDFL_NOCOLOR);
+			hexfl->hex_off_separator = "";
+			break;
 		case 'u': hexfl->hex_flags |= HEXDFL_UPPER; break;
 		}
 	}
 	
-	if (!(hexfl->hex_flags & HEXDFL_MASK_FORMAT) && isatty(STDOUT_FILENO) && !getenv("NO_COLOR")) 
+	if (!(hexfl->hex_flags & HEXDFL_MASK_COLOR) && isatty(STDOUT_FILENO) && !getenv("NO_COLOR")) 
 		hexfl->hex_flags |= HEXDFL_COLORED;
 
 	if (!argv[optind]) argv[optind] = "-";
