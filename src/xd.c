@@ -54,21 +54,23 @@
 #define HEXPFL_BYTE		(0x800)
 
 struct hexdumping {
-	uint16_t  hex_flags;
-	int hex_columns, hex_wordsize, hex_dump_separator_len;
+	uint16_t hex_flags;
+	int	 hex_columns, hex_wordsize;
 	char	*hex_filename, *hex_dump_separator, *hex_off_separator;
 };
 
 void hexprint(FILE *stream, unsigned char ch, uint16_t flags)
 {
-	if (!ch && flags & HEXDFL_COLORED) {
-		fprintf(stream, "\033[1;97m");
-	} else if (ch < 32 && flags & HEXDFL_COLORED) {
-		fprintf(stream, "\033[1;33m");
-	} else if (ch > 127 && flags & HEXDFL_COLORED) {
-		fprintf(stream, "\033[1;31m"); 
-	} else if (flags & HEXDFL_COLORED) {
-		fprintf(stream, "\033[1;32m");
+	if (flags & HEXDFL_COLORED) {
+		if (!ch) {
+			fputs("\033[1;97m", stream);
+		} else if (ch < 32) {
+			fputs("\033[1;33m", stream);
+		} else if (ch > 127) {
+			fputs("\033[1;31m", stream);
+		} else {
+			fputs("\033[1;32m", stream);
+		}
 	}
 
 	if (flags & HEXPFL_BYTE && flags & HEXDFL_BINDUMP) {
@@ -86,7 +88,7 @@ void hexprint(FILE *stream, unsigned char ch, uint16_t flags)
 		}
 	}
 
-	if (flags & HEXDFL_COLORED) fprintf(stream, "\033[0m");
+	if (flags & HEXDFL_COLORED) fputs("\033[0m", stream);
 }
 
 int chexdump(FILE *restrict stream, int source, unsigned char *restrict buf, size_t bufsiz, struct hexdumping *restrict hexfl)
@@ -110,10 +112,10 @@ int chexdump(FILE *restrict stream, int source, unsigned char *restrict buf, siz
 	while ((readbytes = read(source, buf, bufsiz)) > 0) {
 		for (i = 0; i < readbytes; ++i, ++j) {
 			if (j != 0 && (j % hexfl->hex_columns) == 0) {
-				fprintf(stream, "\n");
-				if (hexfl->hex_filename) fprintf(stream, "\t");  
+				fputc('\n', stream);
+				if (hexfl->hex_filename) fputc('\t', stream);
 			} else if (j != 0) {
-				fprintf(stream, ", ");
+				fputs(", ", stream);
 			}
 			
 			if (hexfl->hex_flags & HEXDFL_UPPER) {
@@ -127,7 +129,7 @@ int chexdump(FILE *restrict stream, int source, unsigned char *restrict buf, siz
 	if (readbytes < 0) return -1;
 	
 	if (hexfl->hex_filename) fprintf(stream, "\n};\nunsigned int %s_len = %zu;", hexfl->hex_filename, j); 
-	if (hexfl->hex_filename || (j % hexfl->hex_columns) != 0) fprintf(stream, "\n");
+	if (hexfl->hex_filename || (j % hexfl->hex_columns) != 0) fputc('\n', stream);
 
 	return 0;
 }
@@ -197,7 +199,7 @@ int hexdump(FILE *restrict stream, int source, unsigned char *restrict buf, size
 	
 			if (!(hexfl->hex_flags & HEXDFL_PLAIN)) {
 				fprintf(stream, "%*s", (dumplen - used_digits - used_spaces), "");
-				fprintf(stream, "%*s", hexfl->hex_dump_separator_len, hexfl->hex_dump_separator); 
+				fputs(hexfl->hex_dump_separator, stream);
 				for (k = i - k; k < i; ++k)
 					hexprint(stream, buf[k], hexfl->hex_flags);
 			}
@@ -216,7 +218,7 @@ int __xd__(int argc, char **argv)
 
 	int exitcode = EXIT_SUCCESS;
 
-	struct hexdumping *hexfl = & (struct hexdumping) {.hex_dump_separator = " ", .hex_dump_separator_len = 1, .hex_off_separator = ":"};
+	struct hexdumping *hexfl = & (struct hexdumping) {.hex_dump_separator = " ", .hex_off_separator = ":"};
 
 	size_t bufsiz = (sysconf(_SC_PAGE_SIZE) * 4);
 	size_t outbufsiz = bufsiz;
@@ -253,7 +255,7 @@ int __xd__(int argc, char **argv)
 			dprintf(STDERR_FILENO, __XD_USAGE__, argv[0], argv[0], argv[0], argv[0]);
 			return EXIT_FAILURE;
 		case 'K': hexfl->hex_off_separator = optarg; break; 
-		case 'L': hexfl->hex_dump_separator = optarg; hexfl->hex_dump_separator_len = (int) strlen(optarg); break;
+		case 'L': hexfl->hex_dump_separator = optarg; break;
 		case 'D': hexfl->hex_flags |= HEXDFL_NOCOUNT; break;
 		case 'O': hexfl->hex_flags &= ~HEXDFL_NOCOUNT; break;
 		case 'R':
