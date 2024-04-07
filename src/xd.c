@@ -59,8 +59,10 @@ struct hexdumping {
 	char	*hex_filename, *hex_dump_separator, *hex_off_separator;
 };
 
-void hexprint(FILE *stream, unsigned char ch, uint16_t flags)
+int hexprint(FILE *stream, unsigned char ch, uint16_t flags)
 {
+	int ret = 0;
+
 	if (flags & HEXDFL_COLORED) {
 		if (!ch) {
 			fputs("\033[1;97m", stream);
@@ -74,21 +76,26 @@ void hexprint(FILE *stream, unsigned char ch, uint16_t flags)
 	}
 
 	if (flags & HEXPFL_BYTE && flags & HEXDFL_BINDUMP) {
-		for (uint8_t i = 0x01; i < 0x80; i*=2)
-			fprintf(stream, "%hhu", (ch & i) != 0);
+		for (int8_t i = 7; i >= 0; --i, ret++)
+			fputc(ch & (1 << i) ? '1' : '0', stream);
 	} else if (flags & HEXPFL_BYTE && flags & HEXDFL_UPPER) {
 		fprintf(stream, "%02X", ch);
+		ret += 2;
 	} else if (flags & HEXPFL_BYTE) {
 		fprintf(stream, "%02x", ch);
+		ret += 2;
 	} else {
 		if (ch < 32 || ch > 127) {
 			fputc('.', stream);
 		} else {
 			fputc(ch, stream); 
 		}
+
+		ret++;
 	}
 
 	if (flags & HEXDFL_COLORED) fputs("\033[0m", stream);
+	return ret;
 }
 
 int chexdump(FILE *restrict stream, int source, unsigned char *restrict buf, size_t bufsiz, struct hexdumping *restrict hexfl)
@@ -144,6 +151,7 @@ int hexdump(FILE *restrict stream, int source, unsigned char *restrict buf, size
 	int used_digits = 0, used_spaces = 0;
 	
 	if (source == STDIN_FILENO) j = 0;
+	if (hexfl->hex_flags & HEXDFL_BINDUMP) digits = 8;
 	if (!(hexfl->hex_flags & HEXDFL_FORCE_COLUMNS)) {
 		if (hexfl->hex_flags & HEXDFL_C) {
 			hexfl->hex_columns = 12;
@@ -156,7 +164,6 @@ int hexdump(FILE *restrict stream, int source, unsigned char *restrict buf, size
 		}
 	}
 	
-	if (hexfl->hex_flags & HEXDFL_BINDUMP) digits = 8;
 	if (!(hexfl->hex_flags & HEXDFL_FORCE_WORDSIZE)) {
 		if (hexfl->hex_flags & HEXDFL_PLAIN) {
 			hexfl->hex_wordsize = INT_MAX;
@@ -193,8 +200,8 @@ int hexdump(FILE *restrict stream, int source, unsigned char *restrict buf, size
 					fputc(' ', stream);
 				}
 
-				for (ssize_t m = 0; m < hexfl->hex_wordsize && k < hexfl->hex_columns && i < readbytes; ++m, ++k, ++j, ++i, used_digits += 2) 
-					hexprint(stream, buf[i], hexfl->hex_flags | HEXPFL_BYTE);
+				for (ssize_t m = 0; m < hexfl->hex_wordsize && k < hexfl->hex_columns && i < readbytes; ++m, ++k, ++j, ++i) 
+					used_digits += hexprint(stream, buf[i], hexfl->hex_flags | HEXPFL_BYTE);
 			}
 	
 			if (!(hexfl->hex_flags & HEXDFL_PLAIN)) {
