@@ -1,0 +1,157 @@
+.TH XD 1 "April 2024" "XD Version 1.0" "General Commands Manual"
+
+.SH NAME
+xd \- Display a hexdump table of files
+
+.SH SYNOPSIS
+xd [\fI-D\fR|\fI-O\fR][\fI-L text\fR][\fI-K text\fR][\fI-R when\fR][\fI-bd\fR][\fI-c cols\fR][\fI-g size\fR][\fI-o file\fR][\fI-pu\fR] [\fIfile...\fR]
+.br
+xd \fI-i\fR [\fI-c cols\fR][\fI-n name\fR][\fI-o file\fR][\fI-u\fR] [\fIfile...\fR]
+.br
+xd \fI-?\fR
+
+.SH DESCRIPTION
+.B xd
+Displays a hexdump table of the specified file(s) or standard input. The default columns size of the table is 16. The default bytes group size is 2.
+
+.SH OPTIONS
+.TP
+.B \-?
+Displays the program usage informations instead of executing the program itself.
+.TP
+.B \-D
+Disables the file offsets column at the generated hexdump table.
+.TP
+.B \-O
+Enables the file offsets column at the generated hexdump table (default).
+.TP
+.B \-L text
+Displays the specified text as the separator of the file hexdump to the file contents ASCII representation. Displays a space before the specified text.
+.TP
+.B \-K text
+Displays the specified text as the separator of the file offsets to the file hexdump
+.TP
+.B \-R when
+Specifies when to colorize output. The when option argument can be (non case-sensitive): auto, always or never. If when is "auto" it shall display colors only if the output is a tty and enviroment $NO_COLOR is not set, if when is "always" it shall always colorize output, and if when is "never" it shall never colorize output.
+.TP
+.B \-b
+Perform a binary dump instead of hexdump (changes the default columns size to six and the default bytes group size to one).
+.TP
+.B \-c cols
+Specifies a number of columns to be used instead of the default one. If zero, shall use only one big line.
+.TP
+.B \-d
+Displays the file offsets in decimal instead of hexadecimal.
+.TP
+.B \-g size
+Specifies a group size to be used instead of the default one. If zero, grouping shall be disabled.
+.TP
+.B \-i
+Outputs C headers (changes the default columns size to twelve and ignores group size).
+.TP
+.B \-n name
+Specify a variable name to be used with \fI-i\fR option. 
+.TP
+.B \-o file
+Specify a output file to be used instead of standard output.
+.TP
+.B \-p
+Displays in plain dump format (change the default columns to thirty, changes the default group size to zero, disables file offsets, disables the colorizing and disables the exibition of the file contents ASCII representation).
+.TP
+.B \-u
+Use upper case hexadecimal letters.
+
+.SH STANDARD INPUT
+Shall be used when no operands are provided or when the operand '-' is found.
+.SH STANDARD OUTPUT
+Shall be used to output the table when \fI-o\fR is not specified.
+.SH STANDARD ERROR
+Shall be used to display error informations only.
+
+.SH RETURN VALUES:
+0: No error has ocurred. 
+.br 
+>1: A error has ocurred. 
+
+.SH EXAMPLES:
+The utility base usage is pretty simple, let's see (supossing that \fIxd.1\fR is this file):
+.br 
+$ dd if=xd.1 bs=32 count=2 2> /dev/null | xd
+.br
+0000000000: 2e54 4820 5844 2031 2022 4170 7269 6c20  .TH XD 1 "April 
+.br
+0000000010: 3230 3234 2220 2258 4420 5665 7273 696f  2024" "XD Versio
+.br
+0000000020: 6e20 312e 3022 2022 4765 6e65 7261 6c20  n 1.0" "General 
+.br
+0000000030: 436f 6d6d 616e 6473 204d 616e 7561 6c22  Commands Manual"
+.br
+For a more simple output, you may want the general default behavior, but not to display the file ASCII representation, for that you may use:
+.br
+$ dd if=xd.1 bs=32 count=1 2> /dev/null | xd -pO -K': ' -c 16 -g 2
+.br
+0000000000:  2e54 4820 5844 2031 2022 4170 7269 6c20
+.br
+0000000010:  3230 3234 2220 2258 4420 5665 7273 696f
+.br 
+To discover the ASCII code of the character 'A', you could use:
+.br 
+$ echo 'A\c' | xd -p 
+.br
+41
+.br
+(only on POSIX® implementations of echo utility, on others, you may need to use \fI-e\fR to interpret the escape codes)
+.br
+To generate a embedded binary content on C, you could use: 
+.br
+$ xd -o xd_man.h -i -nxd_manual_page xd.1
+.br 
+
+.SH KNOWN BUGS
+The utility may generate broken tables when reading from standard input. For example:
+$ xd 
+.br
+Let's suppose that I typed: "Hello, world!", then pressed enter and typed "Goodbye, world!", then pressed enter and Control+D.
+.br
+The output would be:
+.br
+0000000000: 4865 6c6c 6f2c 2077 6f72 6c64 210a       Hello, world!.
+.br
+000000000e: 476f 6f64 6279 652c 2077 6f72 6c64 210a  Goodbye, world!.
+.br
+When the most hexdumpers would output:
+.br
+00000000: 4865 6c6c 6f2c 2077 6f72 6c64 210a 476f  Hello, world!.Go
+.br
+00000010: 6f64 6279 652c 2077 6f72 6c64 210a       odbye, world!.
+.br 
+That's not exactly a bug, but an unexpected behavior.
+
+
+.SH FUTURE DIRECTION
+The utility doesn't supports EBCDIC to ASCII conversions, this may change someday.
+.br 
+A utility \fBunxd\fR(1) is in production, it shall do the reverse operation to \fBxd\fR(1).
+.br 
+If I feel motivated I may correct the behavior described in \fBKNOWN BUGS\fR.
+
+.SH AUTHOR
+(©) 2024 by Arthur de Souza Manske 
+.br 
+<usr.asm@pm.me>
+
+.SH LICENSE
+1. You are able to distribute this program freely, provided you credit the author and distribute it within the source code.
+.br
+2. Usage terms: No warranty; No involvement in illegal activities or pornographic content.
+.br
+3. Contribution terms: Contributions must be made in good faith.
+.br
+4. Reverse engineering is permitted under the same terms as the source code usage.
+.br
+5. Derived source code must include these restrictions and may include additional ones.
+.br
+If you disagree, refrain from using this software. By using it, you assume all associated risks, as the software comes with no warranty. Plus, don't use my name without permission.
+
+.SH SEE ALSO
+\fBdd\fR(1), \fBecho\fR(1), \fBhexdump\fR(1), \fBuuencode\fR(1), \fBuudecode\fR(1)
