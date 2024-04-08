@@ -6,7 +6,7 @@ CFLAGS	:= -O0 -s -D_POSIX_C_SOURCE=200809L
 SRC = src
 OBJ = obj
 
-.PHONY: clean objects 
+.PHONY: clean install install-local all
 
 .SUFFIXES:
 .SUFFIXES: .c

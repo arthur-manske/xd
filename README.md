@@ -14,7 +14,7 @@ make all # or <your_prefered_c_compiler> <your_c_flags> -o src/xd src/xd.c
 ### Local
 1. Run:
 ```
-make local-install
+make install-local
 ``` 
 2. Done.
 ### Global
@@ -38,15 +38,7 @@ man xd
 
 ## Author
 xd is created and maintained by Arthur de Souza Manske. For any inquiries or feedback, contact [usr.asm@pm.me](mailto:usr.asm@pm.me).
-
-## License
-1. You are able to distribute this program freely, provided you credit the author and distribute it within the source code.
-2. Usage terms: No warranty; No involvement in illegal activities or pornographic content.
-3. Contribution terms: Contributions must be made in good faith.
-4. Reverse engineering is permitted under the same terms as the source code usage.
-5. Derived source code must include these restrictions and may include additional ones.
-
-If you disagree, refrain from using this software. By using it, you assume all associated risks, as the software comes with no warranty. Plus, don't use my name without permission.
+Licensied under this [terms](LICENSE) 
 
 ## Contributing
-Contributions to XD are welcome! Feel free to submit bug reports, feature requests, or pull requests through the GitHub repository. Bloating options will be rejected; functionality that can be replaced with pipes or other resources is considered unnecessary.
+Contributions to xd utility are welcome. But don't suggest bloated things; Such as functionalities that can be replied by other tools, like applying after a certain offset of the file. 
