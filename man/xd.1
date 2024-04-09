@@ -4,9 +4,9 @@
 xd \- Display a hexdump table of files
 
 .SH SYNOPSIS
-xd [\fI-D\fR|\fI-O\fR][\fI-L text\fR][\fI-K text\fR][\fI-R when\fR][\fI-bd\fR][\fI-c cols\fR][\fI-g size\fR][\fI-o file\fR][\fI-pu\fR] [\fIfile...\fR]
+xd [\fI-D\fR|\fI-O\fR][\fI-L text\fR][\fI-K text\fR][\fI-R when\fR][\fI-b|-o\fR][\fI-d\fR][\fI-c cols\fR][\fI-g size\fR][\fI-p\fR][\fI-t type\fR][\fIu\fR] [\fIfile...\fR]
 .br
-xd \fI-i\fR [\fI-c cols\fR][\fI-n name\fR][\fI-o file\fR][\fI-u\fR] [\fIfile...\fR]
+xd \fI-i\fR [\fI-c cols\fR][\fI-n name\fR][\fI-u\fR] [\fIfile...\fR]
 .br
 xd \fI-?\fR
 
@@ -52,11 +52,14 @@ Outputs C headers (changes the default columns size to twelve and ignores group 
 .B \-n name
 Specify a variable name to be used with \fI-i\fR option. 
 .TP
-.B \-o file
-Specify a output file to be used instead of standard output.
+.B \-o
+Use octal count.
 .TP
 .B \-p
 Displays in plain dump format (change the default columns to thirty, changes the default group size to zero, disables file offsets, disables the colorizing and disables the exibition of the file contents ASCII representation).
+.TP
+.B \-t type 
+Dumps in the specified base. Type may be: h or x (hexadecimal), o (octal), d (decimal) and b (binary).
 .TP
 .B \-u
 Use upper case hexadecimal letters.

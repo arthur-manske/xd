@@ -1,7 +1,7 @@
 .POSIX:
 
 CC	:= c99
-CFLAGS	:= -O0 -s -D_POSIX_C_SOURCE=200809L
+CFLAGS	:= -O0 -D_POSIX_C_SOURCE=200809L -s
 
 SRC = src
 OBJ = obj
