@@ -27,8 +27,8 @@ make install
 
 ## Usage
 ```sh
-xd [-D|-O][-L text][-K text][-R when][-bd][-c cols][-g size][-o file][-pu] [file...]
-xd -i [-c columns][-n name][-o file][-u] [file...]
+xd [-D|-O][-L text][-K text][-R when][-b|-o][-d][-c cols][-g size][-p][-t type][-u] [file...]
+xd -i [-c columns][-n name][-u] [file...]
 xd -?
 ```
 For detailed usage informations, run (after instalation):
