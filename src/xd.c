@@ -64,19 +64,18 @@ struct hexdumping {
 
 int hexprint(FILE *stream, unsigned char ch, uint16_t flags)
 {
-	char *format = "%02hhx";
+	static char *format;
 	int ret = 0;
 
+	format = "%02hhx";
+
 	if (flags & HEXDFL_COLORED) {
-		if (!ch) {
-			fputs("\033[1;97m", stream);
-		} else if (ch < 32) {
-			fputs("\033[1;33m", stream);
-		} else if (ch > 127) {
-			fputs("\033[1;31m", stream);
-		} else {
-			fputs("\033[1;32m", stream);
-		}
+		uint8_t color = 32;	
+		if (ch < 32) color = 33;
+		if (ch > 127) color = 31;
+		if (!ch) color = 97;
+
+		fprintf(stream, "\033[1;%hhum", color);
 	}
 
 	if (flags & HEXPFL_BYTE && flags & HEXDFL_BINARY_DUMP) {
@@ -237,37 +236,28 @@ int main(int argc, char **argv)
 	struct hexdumping *hexfl = & (struct hexdumping) {.hex_dump_separator = " ", .hex_off_separator = ": "};
 
 	size_t bufsiz = sysconf(_SC_PAGE_SIZE) * 4;
-	size_t outbufsiz = bufsiz;
-	
 	unsigned char *buf = malloc(bufsiz);
-	char *outbuf = malloc(outbufsiz);
 
 	if (!buf) {
 		buf = (unsigned char[32]) {0}; 
 		bufsiz = 32;
 	} 
 
-	if (!outbuf) {
-		outbuf = (char [32]) {0};
-		outbufsiz = 32;
-	}
-
-	setvbuf(stdout, outbuf, _IOFBF, outbufsiz); 
 	opterr = 0;
 	while ((ch = getopt(argc, argv, ":DK:L:OR:bc:dig:n:oprt:u")) != -1) {
 		switch (ch) {
 		case '?':
 			if (optopt == '?') {
-				dprintf(STDOUT_FILENO, __XD_USAGE__, argv[0], argv[0], argv[0]);
+				fprintf(stdout, __XD_USAGE__, argv[0], argv[0], argv[0]);
 				return EXIT_SUCCESS;
 			}
 			
-			dprintf(STDERR_FILENO, "%s: Illegal option: %c.\n", argv[0], optopt);
-			dprintf(STDERR_FILENO, __XD_USAGE__, argv[0], argv[0], argv[0]);
+			fprintf(stderr, "%s: Illegal option: %c.\n", argv[0], optopt);
+			fprintf(stderr, __XD_USAGE__, argv[0], argv[0], argv[0]);
 			return EXIT_FAILURE;
 		case ':':
-			dprintf(STDERR_FILENO, "%s: Missing option argument: %c.\n", argv[0], optopt);
-			dprintf(STDERR_FILENO, __XD_USAGE__, argv[0], argv[0], argv[0]);
+			fprintf(stderr, "%s: Missing option argument: %c.\n", argv[0], optopt);
+			fprintf(stderr, __XD_USAGE__, argv[0], argv[0], argv[0]);
 			return EXIT_FAILURE;
 		case 'K': hexfl->hex_off_separator = optarg; break; 
 		case 'L': hexfl->hex_dump_separator = optarg; break;
@@ -290,8 +280,8 @@ int main(int argc, char **argv)
 			hexfl->hex_columns = (uint32_t) strtoull(optarg, NULL, 0);
 			hexfl->hex_flags |= HEXDFL_FORCE_COLUMNS;
 			if (hexfl->hex_columns == 0 && *optarg != '0') {
-				dprintf(STDERR_FILENO, "%s: Illegal option argument, expected integer number.\n", argv[0]);
-				dprintf(STDERR_FILENO, __XD_USAGE__, argv[0], argv[0], argv[0]);
+				fprintf(stderr, "%s: Illegal option argument, expected integer number.\n", argv[0]);
+				fprintf(stderr, __XD_USAGE__, argv[0], argv[0], argv[0]);
 				return EXIT_FAILURE;
 			}
 
@@ -304,8 +294,8 @@ int main(int argc, char **argv)
 			hexfl->hex_wordsize = (uint32_t) strtoull(optarg, NULL, 0);
 			hexfl->hex_flags |= HEXDFL_FORCE_WORDSIZE;
 			if (hexfl->hex_wordsize == 0 && *optarg != '0') {
-				dprintf(STDERR_FILENO, "%s: Illegal option argument, expected integer number.\n", argv[0]);
-				dprintf(STDERR_FILENO, __XD_USAGE__, argv[0], argv[0], argv[0]);
+				fprintf(stderr, "%s: Illegal option argument, expected integer number.\n", argv[0]);
+				fprintf(stderr, __XD_USAGE__, argv[0], argv[0], argv[0]);
 				return EXIT_FAILURE;
 			}
 
@@ -333,8 +323,8 @@ int main(int argc, char **argv)
 		case 't':
 			if (optarg[1]) {
 				error:
-				dprintf(STDERR_FILENO, "%s: Illegal option argument.\n", argv[0]);
-				dprintf(STDERR_FILENO, __XD_USAGE__, argv[0], argv[0], argv[0]);
+				fprintf(stderr, "%s: Illegal option argument.\n", argv[0]);
+				fprintf(stderr, __XD_USAGE__, argv[0], argv[0], argv[0]);
 				return EXIT_FAILURE;
 			}
 			
@@ -361,7 +351,7 @@ int main(int argc, char **argv)
 		if (argv[optind] && argv[optind][0] == '-' && !argv[optind][1]) {
 			fd = STDIN_FILENO;
 		} else if ((fd = open(argv[optind], O_RDONLY)) < 0) {
-			dprintf(STDERR_FILENO, "%s: '%s': Unable to open file: %s (%d).\n", argv[0], argv[optind], strerror(errno), errno);
+			fprintf(stderr, "%s: '%s': Unable to open file: %s (%d).\n", argv[0], argv[optind], strerror(errno), errno);
 			exitcode = EXIT_FAILURE; 
 			continue; 
 		}
@@ -369,7 +359,7 @@ int main(int argc, char **argv)
 		if (!(hexfl->hex_flags & HEXDFL_AUTONAME)) hexfl->hex_filename = argv[optind];
 
 		if (hexdump(stdout, fd, buf, bufsiz, hexfl) < 0) {
-			dprintf(STDERR_FILENO, "%s: '%s': Unable to hexdump: %s (%d).\n", argv[0], argv[optind], strerror(errno), errno);
+			fprintf(stderr, "%s: '%s': Unable to hexdump: %s (%d).\n", argv[0], argv[optind], strerror(errno), errno);
 			exitcode = EXIT_FAILURE;
 		}
 
