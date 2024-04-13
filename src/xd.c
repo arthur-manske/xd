@@ -13,7 +13,7 @@
 
 #define __XD_USAGE__													\
 	"Usage: %s [-D|-O][-L text][-K text][-R when][-b][-d|-o][-c cols][-g size][-p][-t type][-u] [file...]\n"	\
-	"       %s -i [-b][-c columns][-n name][-u] [file...]\n"							\
+	"       %s -i [-c columns][-n name][-u] [file...]\n"								\
 	"       %s -?\n"												\
 	"Displays a hexdump of the specified file(s) or standard input.\n"						\
 	"This utility is not a part of POSIX® specification.\n"								\
@@ -21,7 +21,7 @@
 	"\t-?: Displays this message and then exits.\n"									\
 	"General options:\n"												\
 	"\t-D: Disables the printing of offsets.\n"									\
-	"\t-L text: Specifies the dump separator. A space is added before it.\n"					\
+	"\t-L text: Specifies the dump separator.\n"									\
 	"\t-K text: Specifies the offset separator.\n"									\
 	"\t-O: Enables the printing of offsets (default).\n"								\
 	"\t-R when: Specifies when to color output. When may be: never, always or auto.\n"				\
@@ -182,7 +182,9 @@ int hexdump(FILE *restrict stream, FILE *restrict source, struct hexdumping *res
 	}
 
 	if (hexfl->hex_flags & HEXDFL_C) return chexdump(stream, source, hexfl);
+
 	dumplen = (hexfl->hex_columns * digits) + (hexfl->hex_columns / hexfl->hex_wordsize);
+	if (hexfl->hex_columns % hexfl->hex_wordsize == 0) dumplen -= 1;
 
 	while (fpeek(source) != EOF) {
 		fpos_t initpos;	
@@ -311,7 +313,6 @@ int main(int argc, char **argv)
 		case 'p':
 			hexfl->hex_flags &= ~(HEXDFL_C | HEXDFL_MASK_COLOR);
 			hexfl->hex_flags |= (HEXDFL_NOCOUNT | HEXDFL_PLAIN | HEXDFL_NOCOLOR);
-			hexfl->hex_off_separator = "";
 			break;
 		case 't':
 			if (optarg[1]) goto illegal_optarg; 
