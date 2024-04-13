@@ -12,7 +12,7 @@
 #include <limits.h>
 
 #define __XD_USAGE__													\
-	"Usage: %s [-D|-O][-L text][-K text][-R when][-b][-d|-o][-c cols][-g size][-p][-t type][-u] [file...]\n"	\
+	"Usage: %s [-D|-O][-L text][-K text][-R when][-bd][-c cols][-g size][-pu] [file...]\n"				\
 	"       %s -i [-c columns][-n name][-u] [file...]\n"								\
 	"       %s -?\n"												\
 	"Displays a hexdump of the specified file(s) or standard input.\n"						\
@@ -31,9 +31,7 @@
 	"\t-g size: Specifies a group size for the dumped bytes (defaults to 2).\n"					\
 	"\t-i: Outputs C headers (implies -c12).\n"									\
 	"\t-n name: Specifies a name for the variable with the option -i.\n"						\
-	"\t-o: Counts the offset in octal, not in hexadecimal.\n"							\
 	"\t-p: Displays in plain dump format (implies -D, -c30 and -g0).\n"						\
-	"\t-t type: Performs a dump of specified type: b(binary), x or h (hexadecimal), d(decimal) or o(octal).\n"	\
 	"\t-u: Use upper case hex letters.\n"										\
 	"Manual entry shall be avaliable with: `man 1 xd`.\n"								\
 	"Copyright (©) @Arthur de Souza Manske, 2024. All rights reserved.\n"
@@ -51,10 +49,6 @@
 #define HEXDFL_NOCOUNT		(0x400)
 #define HEXDFL_MASK_COLOR	(HEXDFL_COLORED	| HEXDFL_NOCOLOR)
 #define HEXPFL_BYTE		(0x800)
-
-#define HEXDFL_OCTAL_COUNT	(0x1000)
-#define HEXDFL_OCTAL_DUMP	(0x2000)
-#define HEXDFL_DECIMAL_DUMP	(0x4000)
 
 struct hexdumping {
 	uint16_t hex_flags;
@@ -93,8 +87,6 @@ int hexprint(FILE *stream, unsigned char ch, uint16_t flags)
 	}
 
 	if (flags & HEXDFL_UPPER)	 format = "%02hhX";
-	if (flags & HEXDFL_DECIMAL_DUMP) format = "%03hhu";
-	if (flags & HEXDFL_OCTAL_DUMP)	 format = "%03hho";
 
 	if (!(flags & HEXPFL_BYTE)) {
 		if (ch < 32 || ch > 127) ch = '.';
@@ -157,7 +149,6 @@ int hexdump(FILE *restrict stream, FILE *restrict source, struct hexdumping *res
 	int dumplen = 0, digits = 2;
 
 	if (hexfl->hex_flags & HEXDFL_BINARY_DUMP) digits = 8;
-	if (hexfl->hex_flags & HEXDFL_DECIMAL_DUMP || hexfl->hex_flags & HEXDFL_OCTAL_DUMP) digits = 3;
 
 	if (!(hexfl->hex_flags & HEXDFL_FORCE_COLUMNS)) {
 		if (hexfl->hex_flags & HEXDFL_C) {
@@ -194,7 +185,6 @@ int hexdump(FILE *restrict stream, FILE *restrict source, struct hexdumping *res
 
 		if (!(hexfl->hex_flags & HEXDFL_NOCOUNT)) {
 			char *format = "%010jx%s";
-			if (hexfl->hex_flags & HEXDFL_OCTAL_COUNT)   format = "%010jo%s";
 			if (hexfl->hex_flags & HEXDFL_DECIMAL_COUNT) format = "%010ju%s";
 
 			fprintf(stream, format, totalbytes, hexfl->hex_off_separator);
@@ -241,7 +231,7 @@ int main(int argc, char **argv)
 	struct hexdumping *hexfl = & (struct hexdumping) {.hex_dump_separator = " ", .hex_off_separator = ": "};
 
 	opterr = 0;
-	while ((ch = getopt(argc, argv, ":DK:L:OR:bc:dig:n:oprt:u")) != -1) {
+	while ((ch = getopt(argc, argv, ":DK:L:OR:bc:dig:n:pru")) != -1) {
 		switch (ch) {
 		case '?':
 			if (optopt == '?') {
@@ -306,25 +296,9 @@ int main(int argc, char **argv)
 
 			hexfl->hex_flags |= HEXDFL_AUTONAME;
 			break;
-		case 'o':
-			hexfl->hex_flags &= ~(HEXDFL_DECIMAL_COUNT);
-			hexfl->hex_flags |= HEXDFL_OCTAL_COUNT;
-			break;
 		case 'p':
 			hexfl->hex_flags &= ~(HEXDFL_C | HEXDFL_MASK_COLOR);
 			hexfl->hex_flags |= (HEXDFL_NOCOUNT | HEXDFL_PLAIN | HEXDFL_NOCOLOR);
-			break;
-		case 't':
-			if (optarg[1]) goto illegal_optarg; 
-			
-			switch (optarg[0]) {
-				case 'h': case 'x': hexfl->hex_flags &= ~(HEXDFL_DECIMAL_DUMP | HEXDFL_OCTAL_DUMP | HEXDFL_BINARY_DUMP); break;
-				case 'b': hexfl->hex_flags &= ~(HEXDFL_DECIMAL_DUMP | HEXDFL_OCTAL_DUMP); hexfl->hex_flags |= HEXDFL_BINARY_DUMP; break;
-				case 'o': hexfl->hex_flags &= ~(HEXDFL_BINARY_DUMP  | HEXDFL_DECIMAL_DUMP); hexfl->hex_flags |= HEXDFL_OCTAL_DUMP; break;
-				case 'd': hexfl->hex_flags &= ~(HEXDFL_BINARY_DUMP  | HEXDFL_OCTAL_DUMP); hexfl->hex_flags |= HEXDFL_DECIMAL_DUMP; break;
-				default: goto illegal_optarg;
-			}
-
 			break;
 		case 'u': hexfl->hex_flags |= HEXDFL_UPPER; break;
 		}
