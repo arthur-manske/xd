@@ -62,6 +62,13 @@ struct hexdumping {
 	char	*hex_filename, *hex_dump_separator, *hex_off_separator;
 };
 
+int fpeek(FILE *stream)
+{
+	int ch = fgetc(stream);
+	ungetc(ch, stream);
+	return ch;
+}
+
 int hexprint(FILE *stream, unsigned char ch, uint16_t flags)
 {
 	static char *format;
@@ -100,10 +107,11 @@ int hexprint(FILE *stream, unsigned char ch, uint16_t flags)
 	return ret;
 }
 
-int chexdump(FILE *restrict stream, int source, unsigned char *restrict buf, size_t bufsiz, struct hexdumping *restrict hexfl)
+int chexdump(FILE *restrict stream, FILE *restrict source, struct hexdumping *restrict hexfl)
 {	
-	ssize_t readbytes;
-	ssize_t totalbytes = 0, i = 0;
+	int ch;
+	ssize_t i;
+	uintmax_t totalbytes = 0;
 
 	if (hexfl->hex_filename) {
 		if (hexfl->hex_filename[0] == '-' && !hexfl->hex_filename[1]) {
@@ -118,40 +126,37 @@ int chexdump(FILE *restrict stream, int source, unsigned char *restrict buf, siz
 		fprintf(stream, "unsigned char %s[] = {\n\t", hexfl->hex_filename);
 	}
 
-	while ((readbytes = read(source, buf, bufsiz)) > 0) {
-		for (i = 0; i < readbytes; ++i, ++totalbytes) {
-			char *format = "0x%02hhx";
-			if (hexfl->hex_flags & HEXDFL_UPPER) format = "0x%02hhX";
-
-			if (totalbytes != 0 && (totalbytes % hexfl->hex_columns) == 0) {
-				fputc('\n', stream);
-				if (hexfl->hex_filename) fputc('\t', stream);
-			} else if (totalbytes != 0) {
-				fputs(", ", stream);
-			}
-
-			fprintf(stream, format, buf[i]);
+	while (((ch = fgetc(source))) != EOF) {
+		char *format = "0x%02hhx";
+		if (hexfl->hex_flags & HEXDFL_UPPER) format = "0x%02hhX";
+		
+		if (totalbytes != 0 && totalbytes % hexfl->hex_columns == 0) {
+			fputc('\n', stream);
+			if (hexfl->hex_filename) fputc('\t', stream);
+		} else if (totalbytes != 0) {
+			fputs(", ", stream);
 		}
+
+		fprintf(stream, format, ch);
+		totalbytes++;
 	}
+
+	if (ferror(stream) || ferror(source)) return -1;
 	
-	if (readbytes < 0) return -1;
-	
-	if (hexfl->hex_filename) fprintf(stream, "\n};\nunsigned int %s_len = %zu;", hexfl->hex_filename, totalbytes); 
+	if (hexfl->hex_filename) fprintf(stream, "\n};\nunsigned int %s_len = %ju;", hexfl->hex_filename, (uintmax_t) totalbytes); 
 	if (hexfl->hex_filename || (totalbytes % hexfl->hex_columns) != 0) fputc('\n', stream);
 
 	return 0;
 }
 
-int hexdump(FILE *restrict stream, int source, unsigned char *restrict buf, size_t bufsiz, struct hexdumping *restrict hexfl)
+int hexdump(FILE *restrict stream, FILE *restrict source, struct hexdumping *restrict hexfl)
 {
-	ssize_t readbytes;
-	ssize_t totalbytes = 0;
+	int ch = 0;
+
+	uintmax_t totalbytes = 0;
 	ssize_t i = 0, k = 0;
-	
 	int dumplen = 0, digits = 2;
 	int used_digits = 0, used_spaces = 0;
-
-	off_t initial_offset = 0;
 
 	if (hexfl->hex_flags & HEXDFL_BINARY_DUMP) digits = 8;
 	if (hexfl->hex_flags & HEXDFL_DECIMAL_DUMP || hexfl->hex_flags & HEXDFL_OCTAL_DUMP) digits = 3;
@@ -180,68 +185,65 @@ int hexdump(FILE *restrict stream, int source, unsigned char *restrict buf, size
 
 	}
 
-	if (hexfl->hex_flags & HEXDFL_C) return chexdump(stream, source, buf, bufsiz, hexfl);
+	if (hexfl->hex_flags & HEXDFL_C) return chexdump(stream, source, hexfl);
 
 	dumplen = (hexfl->hex_columns * digits) + (hexfl->hex_columns / hexfl->hex_wordsize);
-	while ((readbytes = read(source, buf, bufsiz)) > 0) {
-		i = 0;
-		while (i < readbytes) {
-			k = used_digits = used_spaces = 0;
-			if (!(hexfl->hex_flags & HEXDFL_NOCOUNT)) {
-				static char *format = "%010zx%s";
-				if (hexfl->hex_flags & HEXDFL_DECIMAL_COUNT) {
-					format = "%010zd%s";
-				} else if (hexfl->hex_flags & HEXDFL_OCTAL_COUNT) {
-					format = "%010zo%s";
-				} else if (hexfl->hex_flags & HEXDFL_UPPER) {
-					format = "%010zX%s";
-				}
-				
-				fprintf(stream, format, totalbytes, hexfl->hex_off_separator);
-			}
-			
-			while (k < hexfl->hex_columns && i < readbytes) {
-				if (k != 0) {
-					used_spaces++;
-					fputc(' ', stream);
-				}
 
-				for (ssize_t j = 0; j < hexfl->hex_wordsize && k < hexfl->hex_columns && i < readbytes; ++i, ++k, ++j, ++totalbytes) 
-					used_digits += hexprint(stream, buf[i], hexfl->hex_flags | HEXPFL_BYTE);
-			}
-	
-			if (!(hexfl->hex_flags & HEXDFL_PLAIN)) {
-				fprintf(stream, "%*s", dumplen - used_digits - used_spaces, "");
-				fputs(hexfl->hex_dump_separator, stream);
+	while (fpeek(source) != EOF) {
+		fpos_t initpos;	
+		if (!(hexfl->hex_flags & HEXDFL_PLAIN)) fgetpos(source, &initpos);
 
-				for (k = i - k; k < i; ++k) 
-					hexprint(stream, buf[k], hexfl->hex_flags);
-			}
+		used_spaces = used_digits = 0;
+		
+		if (!(hexfl->hex_flags & HEXDFL_NOCOUNT)) {
+			char *format = "%010jx%s";
+			if (hexfl->hex_flags & HEXDFL_OCTAL_COUNT)   format = "%010jo%s";
+			if (hexfl->hex_flags & HEXDFL_DECIMAL_COUNT) format = "%010ju%s";
 
-			fputc('\n', stream);
-			initial_offset = totalbytes;
+			fprintf(stream, format, (uintmax_t) totalbytes, hexfl->hex_off_separator);
 		}
+
+		k = 0;
+		while (k < hexfl->hex_columns && ch != EOF) {
+			if (k != 0) {
+				fputc(' ', stream);
+				used_spaces++;
+			}
+
+			for (ssize_t j = 0; j < hexfl->hex_wordsize && k < hexfl->hex_columns; ++j, ++k) {
+				if ((ch = fgetc(source)) == EOF) break;
+				used_digits += hexprint(stream, (unsigned char) ch, hexfl->hex_flags | HEXPFL_BYTE);
+			}
+		}
+		
+		if (!(hexfl->hex_flags & HEXDFL_PLAIN)) {
+			fsetpos(source, &initpos);
+			fprintf(stream, "%*s", dumplen - used_digits - used_spaces, "");
+
+			fputs(hexfl->hex_dump_separator, stream);
+
+			for (k = 0; k < hexfl->hex_columns; ++k) {
+				if ((ch = fgetc(source)) == EOF) break;
+				hexprint(stream, (unsigned char) ch, hexfl->hex_flags);
+			}
+		}
+
+		totalbytes += k;
+		fputc('\n', stream);
 	}
 
-	if (readbytes < 0) return -1;
+	if (ferror(stream) || ferror(source)) return -1;
 	return 0;
 }
 
 int main(int argc, char **argv)
 {
-	int ch, fd;
+	int ch;
+	FILE *input;
 
 	int exitcode = EXIT_SUCCESS;
 
 	struct hexdumping *hexfl = & (struct hexdumping) {.hex_dump_separator = " ", .hex_off_separator = ": "};
-
-	size_t bufsiz = sysconf(_SC_PAGE_SIZE) * 4;
-	unsigned char *buf = malloc(bufsiz);
-
-	if (!buf) {
-		buf = (unsigned char[32]) {0}; 
-		bufsiz = 32;
-	} 
 
 	opterr = 0;
 	while ((ch = getopt(argc, argv, ":DK:L:OR:bc:dig:n:oprt:u")) != -1) {
@@ -349,21 +351,30 @@ int main(int argc, char **argv)
 	
 	do {
 		if (argv[optind] && argv[optind][0] == '-' && !argv[optind][1]) {
-			fd = STDIN_FILENO;
-		} else if ((fd = open(argv[optind], O_RDONLY)) < 0) {
+			input = stdin;
+		} else if (!(input = fopen(argv[optind], "r"))) {
 			fprintf(stderr, "%s: '%s': Unable to open file: %s (%d).\n", argv[0], argv[optind], strerror(errno), errno);
 			exitcode = EXIT_FAILURE; 
 			continue; 
 		}
 
-		if (!(hexfl->hex_flags & HEXDFL_AUTONAME)) hexfl->hex_filename = argv[optind];
+		if (isatty(fileno(input))) { /* saves input to a temporary file */
+			int ch;
+			FILE *tmp = tmpfile();
+			while ((ch = fgetc(input)) != EOF) fputc(ch, tmp);
+			if (input != stdin) fclose(input);
 
-		if (hexdump(stdout, fd, buf, bufsiz, hexfl) < 0) {
+			input = tmp;
+			fseek(input, 0, SEEK_SET);
+		}
+
+		if (!(hexfl->hex_flags & HEXDFL_AUTONAME)) hexfl->hex_filename = argv[optind];
+		if (hexdump(stdout, input, hexfl) < 0) {
 			fprintf(stderr, "%s: '%s': Unable to hexdump: %s (%d).\n", argv[0], argv[optind], strerror(errno), errno);
 			exitcode = EXIT_FAILURE;
 		}
 
-		if (fd) close(fd); 
+		if (input == stdin) fclose(input); 
 	} while ((++optind) < argc);
 
 	return exitcode;

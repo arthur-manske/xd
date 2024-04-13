@@ -110,33 +110,12 @@ To generate a embedded binary content on C, you could use:
 $ xd -o xd_man.h -i -nxd_manual_page xd.1
 .br 
 
-.SH KNOWN BUGS
-The utility may generate broken tables when reading from standard input. For example:
-$ xd 
-.br
-Let's suppose that I typed: "Hello, world!", then pressed enter and typed "Goodbye, world!", then pressed enter and Control+D.
-.br
-The output would be:
-.br
-0000000000: 4865 6c6c 6f2c 2077 6f72 6c64 210a       Hello, world!.
-.br
-000000000e: 476f 6f64 6279 652c 2077 6f72 6c64 210a  Goodbye, world!.
-.br
-When the most hexdumpers would output:
-.br
-00000000: 4865 6c6c 6f2c 2077 6f72 6c64 210a 476f  Hello, world!.Go
-.br
-00000010: 6f64 6279 652c 2077 6f72 6c64 210a       odbye, world!.
-.br 
-That's not exactly a bug, but an unexpected behavior.
-
-
 .SH FUTURE DIRECTION
 The utility doesn't supports EBCDIC to ASCII conversions, this may change someday.
 .br 
 A utility \fBunxd\fR(1) is in production, it shall do the reverse operation to \fBxd\fR(1).
 .br 
-If I feel motivated I may correct the behavior described in \fBKNOWN BUGS\fR.
+The behavior previously described in KNOWN BUGS is no more present.
 
 .SH AUTHOR
 (©) 2024 by Arthur de Souza Manske 
