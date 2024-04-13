@@ -143,7 +143,7 @@ int chexdump(FILE *restrict stream, FILE *restrict source, struct hexdumping *re
 
 	if (ferror(stream) || ferror(source)) return -1;
 	
-	if (hexfl->hex_filename) fprintf(stream, "\n};\nunsigned int %s_len = %ju;", hexfl->hex_filename, (uintmax_t) totalbytes); 
+	if (hexfl->hex_filename) fprintf(stream, "\n};\nunsigned int %s_len = %ju;", hexfl->hex_filename, totalbytes); 
 	if (hexfl->hex_filename || (totalbytes % hexfl->hex_columns) != 0) fputc('\n', stream);
 
 	return 0;
@@ -151,12 +151,10 @@ int chexdump(FILE *restrict stream, FILE *restrict source, struct hexdumping *re
 
 int hexdump(FILE *restrict stream, FILE *restrict source, struct hexdumping *restrict hexfl)
 {
-	int ch = 0;
-
+	int ch;
 	uintmax_t totalbytes = 0;
-	ssize_t i = 0, k = 0;
+	
 	int dumplen = 0, digits = 2;
-	int used_digits = 0, used_spaces = 0;
 
 	if (hexfl->hex_flags & HEXDFL_BINARY_DUMP) digits = 8;
 	if (hexfl->hex_flags & HEXDFL_DECIMAL_DUMP || hexfl->hex_flags & HEXDFL_OCTAL_DUMP) digits = 3;
@@ -171,7 +169,6 @@ int hexdump(FILE *restrict stream, FILE *restrict source, struct hexdumping *res
 		} else {
 			hexfl->hex_columns = 16;
 		}
-
 	}
 	
 	if (!(hexfl->hex_flags & HEXDFL_FORCE_WORDSIZE)) {
@@ -182,35 +179,32 @@ int hexdump(FILE *restrict stream, FILE *restrict source, struct hexdumping *res
 		} else {
 			hexfl->hex_wordsize = 2;
 		}
-
 	}
 
 	if (hexfl->hex_flags & HEXDFL_C) return chexdump(stream, source, hexfl);
-
 	dumplen = (hexfl->hex_columns * digits) + (hexfl->hex_columns / hexfl->hex_wordsize);
 
 	while (fpeek(source) != EOF) {
 		fpos_t initpos;	
+		int i = 0, used_spaces = 0, used_digits = 0;
+
 		if (!(hexfl->hex_flags & HEXDFL_PLAIN)) fgetpos(source, &initpos);
 
-		used_spaces = used_digits = 0;
-		
 		if (!(hexfl->hex_flags & HEXDFL_NOCOUNT)) {
 			char *format = "%010jx%s";
 			if (hexfl->hex_flags & HEXDFL_OCTAL_COUNT)   format = "%010jo%s";
 			if (hexfl->hex_flags & HEXDFL_DECIMAL_COUNT) format = "%010ju%s";
 
-			fprintf(stream, format, (uintmax_t) totalbytes, hexfl->hex_off_separator);
+			fprintf(stream, format, totalbytes, hexfl->hex_off_separator);
 		}
 
-		k = 0;
-		while (k < hexfl->hex_columns && ch != EOF) {
-			if (k != 0) {
+		while (i < hexfl->hex_columns && ch != EOF) {
+			if (i != 0) {
 				fputc(' ', stream);
 				used_spaces++;
 			}
 
-			for (ssize_t j = 0; j < hexfl->hex_wordsize && k < hexfl->hex_columns; ++j, ++k) {
+			for (ssize_t k = 0; k < hexfl->hex_wordsize && i < hexfl->hex_columns; ++i, ++k, ++totalbytes) {
 				if ((ch = fgetc(source)) == EOF) break;
 				used_digits += hexprint(stream, (unsigned char) ch, hexfl->hex_flags | HEXPFL_BYTE);
 			}
@@ -222,13 +216,12 @@ int hexdump(FILE *restrict stream, FILE *restrict source, struct hexdumping *res
 
 			fputs(hexfl->hex_dump_separator, stream);
 
-			for (k = 0; k < hexfl->hex_columns; ++k) {
+			for (i = 0; i < hexfl->hex_columns; ++i) {
 				if ((ch = fgetc(source)) == EOF) break;
 				hexprint(stream, (unsigned char) ch, hexfl->hex_flags);
 			}
 		}
-
-		totalbytes += k;
+		
 		fputc('\n', stream);
 	}
 
@@ -282,7 +275,8 @@ int main(int argc, char **argv)
 			hexfl->hex_columns = (uint32_t) strtoull(optarg, NULL, 0);
 			hexfl->hex_flags |= HEXDFL_FORCE_COLUMNS;
 			if (hexfl->hex_columns == 0 && *optarg != '0') {
-				fprintf(stderr, "%s: Illegal option argument, expected integer number.\n", argv[0]);
+				illegal_optarg:
+				fprintf(stderr, "%s: '%s': Illegal option argument.\n", argv[0], optarg);
 				fprintf(stderr, __XD_USAGE__, argv[0], argv[0], argv[0]);
 				return EXIT_FAILURE;
 			}
@@ -295,11 +289,8 @@ int main(int argc, char **argv)
 		case 'g':
 			hexfl->hex_wordsize = (uint32_t) strtoull(optarg, NULL, 0);
 			hexfl->hex_flags |= HEXDFL_FORCE_WORDSIZE;
-			if (hexfl->hex_wordsize == 0 && *optarg != '0') {
-				fprintf(stderr, "%s: Illegal option argument, expected integer number.\n", argv[0]);
-				fprintf(stderr, __XD_USAGE__, argv[0], argv[0], argv[0]);
-				return EXIT_FAILURE;
-			}
+			if (hexfl->hex_wordsize == 0 && *optarg != '0')
+				goto illegal_optarg;
 
 			if (hexfl->hex_wordsize == 0) hexfl->hex_wordsize = INT_MAX;	
 
@@ -323,20 +314,14 @@ int main(int argc, char **argv)
 			hexfl->hex_off_separator = "";
 			break;
 		case 't':
-			if (optarg[1]) {
-				error:
-				fprintf(stderr, "%s: Illegal option argument.\n", argv[0]);
-				fprintf(stderr, __XD_USAGE__, argv[0], argv[0], argv[0]);
-				return EXIT_FAILURE;
-			}
+			if (optarg[1]) goto illegal_optarg; 
 			
 			switch (optarg[0]) {
-				case 'h':
-				case 'x': hexfl->hex_flags &= ~(HEXDFL_DECIMAL_DUMP | HEXDFL_OCTAL_DUMP | HEXDFL_BINARY_DUMP); break;
+				case 'h': case 'x': hexfl->hex_flags &= ~(HEXDFL_DECIMAL_DUMP | HEXDFL_OCTAL_DUMP | HEXDFL_BINARY_DUMP); break;
 				case 'b': hexfl->hex_flags &= ~(HEXDFL_DECIMAL_DUMP | HEXDFL_OCTAL_DUMP); hexfl->hex_flags |= HEXDFL_BINARY_DUMP; break;
 				case 'o': hexfl->hex_flags &= ~(HEXDFL_BINARY_DUMP  | HEXDFL_DECIMAL_DUMP); hexfl->hex_flags |= HEXDFL_OCTAL_DUMP; break;
 				case 'd': hexfl->hex_flags &= ~(HEXDFL_BINARY_DUMP  | HEXDFL_OCTAL_DUMP); hexfl->hex_flags |= HEXDFL_DECIMAL_DUMP; break;
-				default: goto error;
+				default: goto illegal_optarg;
 			}
 
 			break;
