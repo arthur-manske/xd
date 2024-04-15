@@ -304,7 +304,7 @@ int main(int argc, char **argv)
 		}
 	}
 	
-	if (!(hexfl->hex_flags & HEXDFL_MASK_COLOR) && isatty(STDOUT_FILENO) && !getenv("NO_COLOR")) 
+	if (!(hexfl->hex_flags & HEXDFL_MASK_COLOR) && isatty(STDOUT_FILENO) && !getenv("$NO_COLOR")) 
 		hexfl->hex_flags |= HEXDFL_COLORED;
 
 	if (!argv[optind]) argv[optind] = "-";
@@ -318,7 +318,7 @@ int main(int argc, char **argv)
 			continue; 
 		}
 
-		if (isatty(fileno(input))) { /* saves input to a temporary file */
+		if (isatty(fileno(input)) || input == stdin) { /* saves input to a temporary file */
 			int ch;
 			FILE *tmp = tmpfile();
 			while ((ch = fgetc(input)) != EOF) fputc(ch, tmp);
