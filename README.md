@@ -19,7 +19,7 @@ make install
 ## Examples
 ![src/xd -c32 -g8 makefile output](styl/example1.png)
 ![src/xd -p makefile output](styl/example2.png)
-![src/xd -i -c23 makefile output](styl/example3.png)
+![src/xd -i -c24 makefile output](styl/example3.png)
 ![src/xd -pO makefile output](styl/example4.png)
 
 ## Author

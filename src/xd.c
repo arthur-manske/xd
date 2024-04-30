@@ -36,24 +36,26 @@
 	"Manual entry shall be avaliable with: `man 1 xd`.\n"								\
 	"Copyright (©) @Arthur de Souza Manske, 2024. All rights reserved.\n"
 
-#define HEXDFL_FORCE_COLUMNS	(0x01)
-#define HEXDFL_FORCE_WORDSIZE	(0x02)
-#define HEXDFL_COLORED		(0x04)
-#define HEXDFL_PLAIN		(0x08)
-#define HEXDFL_BINARY_DUMP	(0x10)
-#define HEXDFL_DECIMAL_COUNT		(0x20)
-#define HEXDFL_C		(0x40)
-#define HEXDFL_UPPER		(0x80)
-#define HEXDFL_NOCOLOR		(0x100)
-#define HEXDFL_AUTONAME		(0x200)
-#define HEXDFL_NOCOUNT		(0x400)
-#define HEXDFL_MASK_COLOR	(HEXDFL_COLORED	| HEXDFL_NOCOLOR)
-#define HEXPFL_BYTE		(0x800)
+#define HEXDFL_FORCE_COLUMNS    (0x01)
+#define HEXDFL_FORCE_WORDSIZE   (0x02)
+#define HEXDFL_COLORED          (0x04)
+#define HEXDFL_PLAIN            (0x08)
+#define HEXDFL_BINARY_DUMP      (0x10)
+#define HEXDFL_DECIMAL_COUNT    (0x20)
+#define HEXDFL_C                (0x40)
+#define HEXDFL_UPPER            (0x80)
+#define HEXDFL_NOCOLOR          (0x100)
+#define HEXDFL_AUTONAME	        (0x200)
+#define HEXDFL_NOCOUNT          (0x400)
+
+#define HEXDFL_COLOR_MASK       (HEXDFL_COLORED	| HEXDFL_NOCOLOR)
+
+#define HEXPFL_BYTE             (0x800)
 
 struct hexdumping {
-	uint16_t hex_flags;
-	int	 hex_columns, hex_wordsize;
-	char	*hex_filename, *hex_dump_separator, *hex_off_separator;
+	uint16_t    hex_flags;
+	int	    hex_columns, hex_wordsize;
+	const char *hex_filename, *hex_dump_separator, *hex_off_separator;
 };
 
 int fpeek(FILE *stream)
@@ -99,6 +101,26 @@ int hexprint(FILE *stream, unsigned char ch, uint16_t flags)
 	return ret;
 }
 
+int fprintcid(const char *restrict s, FILE *restrict stream)
+{
+	if (ferror(stream)) return -1;
+
+	if (isdigit(*s))
+		fputc('_', stream);
+
+	while (*s) {
+		if (!isalnum(*s)) {
+			fputc('_', stream);
+		} else {
+			fputc(*s,  stream);
+		}
+		s++;
+	}
+
+	if (ferror(stream)) return -1;
+	return 0;
+}
+
 int chexdump(FILE *restrict stream, FILE *restrict source, struct hexdumping *restrict hexfl)
 {	
 	int ch;
@@ -106,16 +128,13 @@ int chexdump(FILE *restrict stream, FILE *restrict source, struct hexdumping *re
 	uintmax_t totalbytes = 0;
 
 	if (hexfl->hex_filename) {
-		if (hexfl->hex_filename[0] == '-' && !hexfl->hex_filename[1]) {
-			hexfl->hex_filename = "stdin";
-		} else {
-			for (i = 0; hexfl->hex_filename[i]; ++i) {
-				if ((i == 0 && isdigit(hexfl->hex_filename[i])) || !isalnum(hexfl->hex_filename[i]))
-					hexfl->hex_filename[i] = '_';
-			}
+		if (strcmp(hexfl->hex_filename, "-") == 0) {
+			hexfl->hex_filename = "standard input";
 		}
 
-		fprintf(stream, "unsigned char %s[] = {\n\t", hexfl->hex_filename);
+		fputs("#include <stddef.h>\nunsigned char ", stream);
+		fprintcid(hexfl->hex_filename, stream);
+		fputs("[] = {\n\t", stream);
 	}
 
 	while (((ch = fgetc(source))) != EOF) {
@@ -135,8 +154,13 @@ int chexdump(FILE *restrict stream, FILE *restrict source, struct hexdumping *re
 
 	if (ferror(stream) || ferror(source)) return -1;
 	
-	if (hexfl->hex_filename) fprintf(stream, "\n};\nunsigned int %s_len = %ju;", hexfl->hex_filename, totalbytes); 
-	if (hexfl->hex_filename || (totalbytes % hexfl->hex_columns) != 0) fputc('\n', stream);
+	if (hexfl->hex_filename) {
+		fputs("\n};\nsize_t ", stream);
+		fprintcid(hexfl->hex_filename, stream);
+		fprintf(stream, "_len = %ju;\n", totalbytes);
+	} else if ((totalbytes % hexfl->hex_columns) != 0) {
+		fputc('\n', stream);
+	}
 
 	return 0;
 }
@@ -231,7 +255,7 @@ int main(int argc, char **argv)
 	struct hexdumping *hexfl = & (struct hexdumping) {.hex_dump_separator = " ", .hex_off_separator = ": "};
 
 	opterr = 0;
-	while ((ch = getopt(argc, argv, ":DK:L:OR:bc:dig:n:pru")) != -1) {
+	while ((ch = getopt(argc, argv, ":DK:L:OR:bc:dig:n:pu")) != -1) {
 		switch (ch) {
 		case '?':
 			if (optopt == '?') {
@@ -252,12 +276,12 @@ int main(int argc, char **argv)
 		case 'O': hexfl->hex_flags &= ~HEXDFL_NOCOUNT; break;
 		case 'R':
 			if (strcasecmp("auto", optarg) == 0) {
-				hexfl->hex_flags &= ~HEXDFL_MASK_COLOR;
+				hexfl->hex_flags &= ~HEXDFL_COLOR_MASK;
 			} else if (strcasecmp("always", optarg) == 0) {
-				hexfl->hex_flags &= ~HEXDFL_MASK_COLOR;
+				hexfl->hex_flags &= ~HEXDFL_COLOR_MASK;
 				hexfl->hex_flags |= HEXDFL_COLORED;
 			} else if (strcasecmp("never", optarg) == 0) {
-				hexfl->hex_flags &= ~HEXDFL_MASK_COLOR;
+				hexfl->hex_flags &= ~HEXDFL_COLOR_MASK;
 				hexfl->hex_flags |= HEXDFL_NOCOLOR;
 			}
 
@@ -297,14 +321,14 @@ int main(int argc, char **argv)
 			hexfl->hex_flags |= HEXDFL_AUTONAME;
 			break;
 		case 'p':
-			hexfl->hex_flags &= ~(HEXDFL_C | HEXDFL_MASK_COLOR);
+			hexfl->hex_flags &= ~(HEXDFL_C | HEXDFL_COLOR_MASK);
 			hexfl->hex_flags |= (HEXDFL_NOCOUNT | HEXDFL_PLAIN | HEXDFL_NOCOLOR);
 			break;
 		case 'u': hexfl->hex_flags |= HEXDFL_UPPER; break;
 		}
 	}
 	
-	if (!(hexfl->hex_flags & HEXDFL_MASK_COLOR) && isatty(STDOUT_FILENO) && !getenv("$NO_COLOR")) 
+	if (!(hexfl->hex_flags & HEXDFL_COLOR_MASK) && isatty(STDOUT_FILENO) && !getenv("$NO_COLOR")) 
 		hexfl->hex_flags |= HEXDFL_COLORED;
 
 	if (!argv[optind]) argv[optind] = "-";
@@ -312,9 +336,10 @@ int main(int argc, char **argv)
 	do {
 		if (argv[optind] && argv[optind][0] == '-' && !argv[optind][1]) {
 			input = stdin;
-		} else if (!(input = fopen(argv[optind], "r"))) {
-			fprintf(stderr, "%s: '%s': Unable to open file: %s (%d).\n", argv[0], argv[optind], strerror(errno), errno);
-			exitcode = EXIT_FAILURE; 
+		} else if (!(input = fopen(argv[optind], "rb"))) {
+		hexerr:	fprintf(stderr, "%s: '%s': Unable to hexdump file: %s (%d).\n", argv[0], argv[optind], strerror(errno), errno);
+			exitcode = EXIT_FAILURE;
+			if (input) fclose(input);
 			continue; 
 		}
 
@@ -328,13 +353,14 @@ int main(int argc, char **argv)
 			fseek(input, 0, SEEK_SET);
 		}
 
-		if (!(hexfl->hex_flags & HEXDFL_AUTONAME)) hexfl->hex_filename = argv[optind];
-		if (hexdump(stdout, input, hexfl) < 0) {
-			fprintf(stderr, "%s: '%s': Unable to hexdump: %s (%d).\n", argv[0], argv[optind], strerror(errno), errno);
-			exitcode = EXIT_FAILURE;
-		}
+		if (!(hexfl->hex_flags & HEXDFL_AUTONAME))
+			hexfl->hex_filename = argv[optind];
 
-		if (input == stdin) fclose(input); 
+		if (hexdump(stdout, input, hexfl) < 0)
+			goto hexerr;
+
+		if (input != stdin)
+			fclose(input); 
 	} while ((++optind) < argc);
 
 	return exitcode;
