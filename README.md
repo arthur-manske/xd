@@ -23,8 +23,8 @@ make install
 ![src/xd -pO makefile output](styl/example4.png)
 
 ## Author
-xd is created and maintained by Arthur de Souza Manske. For any inquiries or feedback, contact [usr.asm@pm.me](mailto:usr.asm@pm.me).
-Licensied under this [terms](LICENSE) 
+xd is created and maintained by Arthur de Souza Manske. For any inquiries or feedback, contact [arthurmanske@pm.me](mailto:arthurmanske@pm.me).
+Licensied under this [terms](LICENSE) (strictly)
 
 ## Contributing
 Contributions to xd utility are welcome. But don't suggest bloated things; Such as functionalities that can be replied by other tools, like applying after a certain offset of the file. 
