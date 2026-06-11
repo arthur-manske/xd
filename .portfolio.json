@@ -1,0 +1,6 @@
+{
+  "description": {
+    "pt": "Utilitário simples de visualização de dados em formato hexadecimal, inspirado pesadamente pelo utilitário popular no mundo LINUX® e UNIX® xxd.",
+    "en: "A lightweight hexadecimal data visualization tool inspired by the xxd utility commonly found in Linux and Unix systems.",
+  }
+}
